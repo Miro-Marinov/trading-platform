@@ -8,7 +8,7 @@ import org.openjdk.jmh.annotations.Mode._
 import org.openjdk.jmh.annotations._
 
 import scala.highperfscala.benchmarks.CancelBenchmarks.BookWithLargeQueue
-import scala.highperfscala.orderbook.Commands.{AddLimitOrder, CancelOrder}
+import scala.highperfscala.orderbook.Commands.{AddOrder, CancelOrder}
 import scala.highperfscala.orderbook.Events.Event
 import scala.highperfscala.orderbook.OrderBook
 
@@ -55,7 +55,7 @@ object CancelBenchmarks {
       book = {
         (firstId to enqueuedOrderCount).foldLeft(OrderBook.empty) {
           case (ob, i) =>
-            ob.handle(AddLimitOrder(LimitOrder(OrderId(i), Instant.now, p, Quantity(15.2), OrderSide.Ask)))._1
+            ob.handle(AddOrder(Order(OrderId(i), Instant.now, p, Quantity(15.2), OrderSide.Ask, isLimit = true)))._1
         }
       }
 

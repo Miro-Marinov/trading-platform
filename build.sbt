@@ -9,7 +9,7 @@ enablePlugins(JmhPlugin)
 
 libraryDependencies ++= Seq(
   "org.slf4j" % "slf4j-log4j12" % "1.7.25",
-  "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0"
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.8.0"
 )
 
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.14.0"

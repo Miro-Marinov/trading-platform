@@ -1,11 +1,10 @@
 package highperfscala.benchmarks.util
 
 import java.io._
-import java.nio.file.{Files, Paths}
 
-import highperfscala.orderbook.{LimitOrder, OrderId}
+import highperfscala.orderbook.{Order, OrderId}
 
-import scala.highperfscala.orderbook.Commands.{AddLimitOrder, CancelOrder}
+import scala.highperfscala.orderbook.Commands.{AddOrder, CancelOrder}
 import scala.util.Random
 
 /**
@@ -16,15 +15,15 @@ object FileExporter {
   val ids = scala.collection.mutable.Set.empty[OrderId]
   val oos = new ObjectOutputStream(new FileOutputStream("orders-data"))
   val r: Random.type = scala.util.Random
+
   def main(args: Array[String]): Unit = {
-//    Files.deleteIfExists(Paths.get("orders-data"))
+    //    Files.deleteIfExists(Paths.get("orders-data"))
 
 
     (1 to 250000).foreach { _ =>
-      LimitOrder.genLimitOrder.sample.foreach { limitOrder =>
-        val addLimitOrder = AddLimitOrder(limitOrder)
-        oos.writeObject(addLimitOrder)
-        ids.add(limitOrder.id)
+      Order.genOrder.sample.foreach { order: Order =>
+        oos.writeObject(AddOrder(order.copy(isLimit = true)))
+        ids.add(order.id)
       }
 
       r.nextDouble() match {

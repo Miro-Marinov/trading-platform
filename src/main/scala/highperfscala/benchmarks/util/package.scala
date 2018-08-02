@@ -15,12 +15,12 @@ package object util extends LazyLogging {
     infiniteCommands(sample).take(count).toList
 
   def jvmWarmUp(sample: List[Command]): Unit = {
-    logger.debug("Begin warm up")
+    logger.info("Begin warm up")
     val commands = util.generateCount(sample, 100000)
     commands.foldLeft(OrderBook.empty) {
       case (book, command) => book.handle(command)._1
     }
-    logger.debug("End warm up")
+    logger.info("End warm up")
   }
 
   def printSnapshot(s: Snapshot): Unit = println {
