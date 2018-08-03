@@ -19,3 +19,6 @@ libraryDependencies += "nl.grons" %% "metrics-scala-hdr" % "4.0.0"
 libraryDependencies += "org.openjdk.jmh" % "jmh-core" % "1.21"
 libraryDependencies += "org.openjdk.jmh" % "jmh-generator-annprocess" % "1.21" % "provided"
 
+libraryDependencies += "it.unimi.dsi" % "fastutil" % "8.2.1"
+
+

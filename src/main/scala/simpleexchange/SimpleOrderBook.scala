@@ -216,40 +216,42 @@ class OrderBook(symbol: String) {
 }
 
 
-object Main extends App {
-  val random = new scala.util.Random
+object Main {
 
-  val msftBook = new OrderBook("MSFT")
+  def main(args: Array[String]): Unit = {
+    val random = new scala.util.Random
 
-  msftBook.listenForEvents((response) => {
-    response match {
-      case resp => println(resp)
-    }
-  })
+    val msftBook = new OrderBook("MSFT")
 
-  msftBook.listenForMarketData((response) => {
-    response match {
-      case resp => println(resp)
-    }
-  })
+    msftBook.listenForEvents((response) => {
+      response match {
+        case resp => println(resp)
+      }
+    })
+
+    msftBook.listenForMarketData((response) => {
+      response match {
+        case resp => println(resp)
+      }
+    })
 
 
-  //one bid, only bidQ should be populated
-  val order1 = Order(1, "1", "MSFT", 100, true, Some(50))
-  msftBook.processOrderBookRequest(order1)
-  assert(!msftBook.bidsQ.isEmpty)
-  assert(msftBook.offersQ.isEmpty)
+    //one bid, only bidQ should be populated
+    val order1 = Order(1, "1", "MSFT", 100, true, Some(50))
+    msftBook.processOrderBookRequest(order1)
+    assert(!msftBook.bidsQ.isEmpty)
+    assert(msftBook.offersQ.isEmpty)
 
-  //execute 50 shares of the order in bidsQ
-  val order2 = Order(1, "2", "MSFT", 50, false, Some(50))
-  msftBook.processOrderBookRequest(order2)
-  assert(msftBook.bidsQ.peek.qty == 50)
-  assert(msftBook.offersQ.isEmpty)
+    //execute 50 shares of the order in bidsQ
+    val order2 = Order(1, "2", "MSFT", 50, false, Some(50))
+    msftBook.processOrderBookRequest(order2)
+    assert(msftBook.bidsQ.peek.qty == 50)
+    assert(msftBook.offersQ.isEmpty)
 
-  //offer shares at a price where both bid and offer queues are populated with 50 shares
-  val order3 = Order(1, "3", "MSFT", 50, false, Some(51))
-  msftBook.processOrderBookRequest(order3)
-  assert(msftBook.bidsQ.peek.qty == 50)
-  assert(msftBook.offersQ.peek.qty == 50)
-
+    //offer shares at a price where both bid and offer queues are populated with 50 shares
+    val order3 = Order(1, "3", "MSFT", 50, false, Some(51))
+    msftBook.processOrderBookRequest(order3)
+    assert(msftBook.bidsQ.peek.qty == 50)
+    assert(msftBook.offersQ.peek.qty == 50)
+  }
 }
