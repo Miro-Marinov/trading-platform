@@ -40,9 +40,7 @@ class OrderBook(listener: OrderBookListener, bids: Long2ObjectRBTreeMap[PriceLev
   private def buy(orderId: Long, price: Long, size: Long): Unit = {
     var remainingQuantity = size
     var bestLevel = getBestLevel(asks)
-    while ( {
-      remainingQuantity > 0 && bestLevel != null && bestLevel.getPrice <= price
-    }) {
+    while (remainingQuantity > 0 && bestLevel != null && bestLevel.getPrice <= price) {
       remainingQuantity = bestLevel.matchOrder(orderId, Side.BUY, remainingQuantity, listener)
       if (bestLevel.isEmpty) asks.remove(bestLevel.getPrice)
       bestLevel = getBestLevel(asks)
@@ -56,9 +54,7 @@ class OrderBook(listener: OrderBookListener, bids: Long2ObjectRBTreeMap[PriceLev
   private def sell(orderId: Long, price: Long, size: Long): Unit = {
     var remainingQuantity = size
     var bestLevel = getBestLevel(bids)
-    while ( {
-      remainingQuantity > 0 && bestLevel != null && bestLevel.getPrice >= price
-    }) {
+    while (remainingQuantity > 0 && bestLevel != null && bestLevel.getPrice >= price) {
       remainingQuantity = bestLevel.matchOrder(orderId, Side.SELL, remainingQuantity, listener)
       if (bestLevel.isEmpty) bids.remove(bestLevel.getPrice)
       bestLevel = getBestLevel(bids)
