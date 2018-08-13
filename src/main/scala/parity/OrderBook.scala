@@ -5,6 +5,9 @@ import javax.annotation.concurrent.NotThreadSafe
 import parity.Side.Side
 
 import scala.annotation.tailrec
+import scala.collection.mutable.ArrayBuffer
+
+//TODO: How to work with BigDecimals
 
 @NotThreadSafe
 case class OrderBook(listener: OrderBookListener,
@@ -38,17 +41,29 @@ case class OrderBook(listener: OrderBookListener,
     */
   def enter(orderId: Long, side: Side, price: Long, size: Long, isMarket: Boolean): Unit = {
     if (orders.containsKey(orderId)) return
+    if (isMarket) {
+      val marketPrice =  getMarketPriceForSize(side, size)
+      if (side == Side.BUY && marketPrice > price ||
+        side == Side.SELL && marketPrice < price) return // TODO: Listener
+    }
     if (side == Side.BUY) buy(orderId, price, size)
     else sell(orderId, price, size)
   }
 
-  def getMarketPriceForSize(side: Side, size: Long) = {
-    val sideLevels = if (side == Side.BUY) asks
-    else bids
+  def getMarketPriceForSize(side: Side, size: Long): Long = {
+    val sideLevels = if (side == Side.BUY) asks else bids
+    if (sideLevels.isEmpty) return 0L
 
-    // Average out (weighted)
-    def inner(acc)
+    // Weighted price according to each price level
+    @tailrec
+    def inner(level: Long, acc: Long, pricesWithVolume: ArrayBuffer[(Long, Long)]): ArrayBuffer[(Long, Long)] = {
+      if (acc > size) pricesWithVolume += ((sideLevels(level).price, acc - size))
+      else if (acc == size) pricesWithVolume
+      else inner(level + 1, acc + sideLevels(level).volume, pricesWithVolume += ((sideLevels(level).price, sideLevels(level).volume)))
+    }
 
+    inner(0, sideLevels(0).volume, ArrayBuffer.empty[(Long, Long)])
+      .foldLeft(0L) { case (acc, (l, s)) => acc + l * s }
   }
 
   @tailrec
