@@ -2,45 +2,52 @@ package parity
 
 import parity.Side.Side
 
-class PriceLevel(side: Side, price: Long, orders: java.util.ArrayList[Order]) {
+import scala.annotation.tailrec
+import scala.collection.mutable.ArrayBuffer
+
+case class PriceLevel(side: Side, price: Long, orders: ArrayBuffer[Order], volume: Long) {
 
   def this(side: Side, price: Long) = {
-    this(side, price, new java.util.ArrayList[Order])
+    this(side, price, ArrayBuffer.empty[Order])
   }
-
-  def getSide: Side = side
-
-  def getPrice: Long = price
 
   def isEmpty: Boolean = orders.isEmpty
 
-  def add(orderId: Long, size: Long): Order = {
+  def addOrder(orderId: Long, size: Long): Order = {
     val order = new Order(this, orderId, size)
-    orders.add(order)
+    orders += order
+    volume += size
     order
   }
 
-  def matchOrder(orderId: Long, side: Side, quantity: Long, listener: OrderBookListener): Long = {
-    var matchedQuantity = quantity
-
-    while (matchedQuantity > 0 && !orders.isEmpty) {
-      val order = orders.get(0)
-      val orderQuantity = order.remainingQuantity
-      if (orderQuantity > matchedQuantity) {
-        order.reduce(matchedQuantity)
-        listener.matched(order.id, orderId, side, price, matchedQuantity, order.remainingQuantity)
-        matchedQuantity = 0
-      }
-      else {
-        orders.remove(0)
-        listener.matched(order.id, orderId, side, price, orderQuantity, 0)
-        matchedQuantity -= orderQuantity
+  def matchOrder(orderId: Long, side: Side, size: Long, listener: OrderBookListener): Long = {
+    @tailrec
+    def matchOrderInner(matchedSize: Long): Long = {
+      if (matchedSize > 0 && orders.nonEmpty) {
+        val order = orders(0)
+        val orderSize = order.size
+        if (orderSize > matchedSize) {
+          order.reduceBy(matchedSize)
+          volume -= matchedSize
+          listener.matched(order.id, orderId, side, price, matchedSize, order.size)
+          0L
+        }
+        else {
+          orders.remove(0)
+          volume -= orderSize
+          listener.matched(order.id, orderId, side, price, orderSize, 0)
+          matchOrderInner(matchedSize - orderSize)
+        }
+      } else {
+        matchedSize
       }
     }
-    matchedQuantity
+
+    matchOrderInner(size)
   }
 
   def delete(order: Order): Unit = {
-    orders.remove(order)
+    orders -= order
+    volume -= order.size
   }
 }

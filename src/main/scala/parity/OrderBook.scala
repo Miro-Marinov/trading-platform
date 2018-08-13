@@ -1,17 +1,22 @@
 package parity
 
-import it.unimi.dsi.fastutil.longs.{Long2ObjectOpenHashMap, Long2ObjectRBTreeMap, LongComparators}
+import it.unimi.dsi.fastutil.longs._
+import javax.annotation.concurrent.NotThreadSafe
 import parity.Side.Side
 
-class OrderBook(listener: OrderBookListener, bids: Long2ObjectRBTreeMap[PriceLevel],
-                asks: Long2ObjectRBTreeMap[PriceLevel], orders: Long2ObjectOpenHashMap[Order]) {
+import scala.annotation.tailrec
+
+@NotThreadSafe
+case class OrderBook(listener: OrderBookListener,
+                     bids: Long2ObjectRBTreeMap[PriceLevel],
+                     asks: Long2ObjectRBTreeMap[PriceLevel],
+                     orders: Long2ObjectOpenHashMap[Order]) {
 
   def this(listener: OrderBookListener) = {
     this(listener,
       new Long2ObjectRBTreeMap[PriceLevel](LongComparators.OPPOSITE_COMPARATOR),
       new Long2ObjectRBTreeMap[PriceLevel](LongComparators.NATURAL_COMPARATOR),
-      new Long2ObjectOpenHashMap[Order]
-    )
+      new Long2ObjectOpenHashMap[Order]())
   }
 
   /**
@@ -31,36 +36,49 @@ class OrderBook(listener: OrderBookListener, bids: Long2ObjectRBTreeMap[PriceLev
     * @param price   the limit price
     * @param size    the size
     */
-  def enter(orderId: Long, side: Side, price: Long, size: Long): Unit = {
+  def enter(orderId: Long, side: Side, price: Long, size: Long, isMarket: Boolean): Unit = {
     if (orders.containsKey(orderId)) return
     if (side == Side.BUY) buy(orderId, price, size)
     else sell(orderId, price, size)
   }
 
-  private def buy(orderId: Long, price: Long, size: Long): Unit = {
-    var remainingQuantity = size
-    var bestLevel = getBestLevel(asks)
-    while (remainingQuantity > 0 && bestLevel != null && bestLevel.getPrice <= price) {
-      remainingQuantity = bestLevel.matchOrder(orderId, Side.BUY, remainingQuantity, listener)
-      if (bestLevel.isEmpty) asks.remove(bestLevel.getPrice)
-      bestLevel = getBestLevel(asks)
+  def getMarketPriceForSize(side: Side, size: Long) = {
+    val sideLevels = if (side == Side.BUY) asks
+    else bids
+
+    // Average out (weighted)
+    def inner(acc)
+
+  }
+
+  @tailrec
+  private def executeOrder(orderId: Long, price: Long, size: Long, bestLevel: PriceLevel, side: Side)
+                          (priceLevelIsWithinPrice: (PriceLevel, Long) => Boolean): Long = {
+    if (size > 0 && bestLevel != null && priceLevelIsWithinPrice(bestLevel, price)) {
+      val newSize = bestLevel.matchOrder(orderId, side, size, listener)
+      if (bestLevel.isEmpty) asks.remove(bestLevel.price)
+      executeOrder(orderId, price, newSize, getBestLevel(asks), side)(priceLevelIsWithinPrice)
+    } else {
+      size
     }
+  }
+
+  private def buy(orderId: Long, price: Long, size: Long): Unit = {
+    val remainingQuantity =
+      executeOrder(orderId, price, size, getBestLevel(asks), Side.BUY)((priceLevel, price) => priceLevel.price <= price)
     if (remainingQuantity > 0) {
-      orders.put(orderId, add(bids, orderId, Side.BUY, price, remainingQuantity))
+      val addedBid = add(bids, orderId, Side.BUY, price, remainingQuantity)
+      orders.put(orderId, addedBid)
       listener.added(orderId, Side.BUY, price, remainingQuantity)
     }
   }
 
   private def sell(orderId: Long, price: Long, size: Long): Unit = {
-    var remainingQuantity = size
-    var bestLevel = getBestLevel(bids)
-    while (remainingQuantity > 0 && bestLevel != null && bestLevel.getPrice >= price) {
-      remainingQuantity = bestLevel.matchOrder(orderId, Side.SELL, remainingQuantity, listener)
-      if (bestLevel.isEmpty) bids.remove(bestLevel.getPrice)
-      bestLevel = getBestLevel(bids)
-    }
+    val remainingQuantity =
+      executeOrder(orderId, price, size, getBestLevel(asks), Side.SELL)((priceLevel, price) => priceLevel.price >= price)
     if (remainingQuantity > 0) {
-      orders.put(orderId, add(asks, orderId, Side.SELL, price, remainingQuantity))
+      val addedAsk = add(asks, orderId, Side.SELL, price, remainingQuantity)
+      orders.put(orderId, addedAsk)
       listener.added(orderId, Side.SELL, price, remainingQuantity)
     }
   }
@@ -80,42 +98,36 @@ class OrderBook(listener: OrderBookListener, bids: Long2ObjectRBTreeMap[PriceLev
   def cancel(orderId: Long, size: Long): Unit = {
     val order = orders.get(orderId)
     if (order == null) return
-    val remainingQuantity = order.remainingQuantity
-    if (size >= remainingQuantity) return
+    val remainingSize = order.size
+    if (size >= remainingSize) return
     if (size > 0) order.resize(size)
-    else {
-      delete(order)
-      orders.remove(orderId)
-    }
-    listener.cancelled(orderId, remainingQuantity - size, size)
+    else delete(order)
+    listener.cancelled(orderId, remainingSize - size, size)
   }
 
-  private def getBestLevel(levels: Long2ObjectRBTreeMap[PriceLevel]): PriceLevel = {
-    if (levels.isEmpty) return null
-    levels.get(levels.firstLongKey)
+  private def getBestLevel(sideLevels: Long2ObjectRBTreeMap[PriceLevel]): PriceLevel = {
+    if (sideLevels.isEmpty) return null
+    sideLevels.get(sideLevels.firstLongKey)
   }
 
   private def add(levels: Long2ObjectRBTreeMap[PriceLevel], orderId: Long, side: Side, price: Long, size: Long) = {
-    var level = levels.get(price)
-    if (level == null) {
-      level = new PriceLevel(side, price)
-      levels.put(price, level)
-    }
-    level.add(orderId, size)
+    val level = levels.putIfAbsent(price, new PriceLevel(side, price))
+    level.addOrder(orderId, size)
   }
 
   private def delete(order: Order): Unit = {
-    val level = order.level
+    val level = order.priceLevel
     level.delete(order)
     if (level.isEmpty) delete(level)
+    orders.remove(order.id)
   }
 
   private def delete(level: PriceLevel): Unit = {
-    level.getSide match {
+    level.side match {
       case Side.BUY =>
-        bids.remove(level.getPrice)
+        bids.remove(level.price)
       case Side.SELL =>
-        asks.remove(level.getPrice)
+        asks.remove(level.price)
     }
   }
 }

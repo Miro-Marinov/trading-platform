@@ -21,14 +21,10 @@ class OrderBookBenchMark {
       override def matched(restingOrderId: Long, incomingOrderId: Long, incomingSide: Side, price: Long, executedQuantity: Long, remainingQuantity: Long): Unit = {
       }
 
-      override
-
-      def added(orderId: Long, side: Side, price: Long, size: Long): Unit = {
+      override def added(orderId: Long, side: Side, price: Long, size: Long): Unit = {
       }
 
-      override
-
-      def cancelled(orderId: Long, canceledQuantity: Long, remainingQuantity: Long): Unit = {
+      override def cancelled(orderId: Long, canceledQuantity: Long, remainingQuantity: Long): Unit = {
       }
     }
 

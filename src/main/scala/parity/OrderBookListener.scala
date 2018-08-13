@@ -14,7 +14,12 @@ trait OrderBookListener {
     * @param executedQuantity  the executed quantity
     * @param remainingQuantity the remaining quantity of the resting order
     */
-  def matched(restingOrderId: Long, incomingOrderId: Long, incomingSide: Side, price: Long, executedQuantity: Long, remainingQuantity: Long): Unit
+  def matched(restingOrderId: Long,
+              incomingOrderId: Long,
+              incomingSide: Side,
+              price: Long,
+              executedQuantity: Long,
+              remainingQuantity: Long): Unit
 
   /**
     * Add an order to the order book.
